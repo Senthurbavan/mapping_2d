@@ -10,6 +10,8 @@ Mapping2D::Mapping2D(const rclcpp::NodeOptions &options)
 
   declare_parameter("update_frequency", 1.0);
   declare_parameter("publish_frequency", 2.0);
+  declare_parameter("robot_base_frame", "base_footprint");
+  declare_parameter("global_frame", "map");
 }
 
 
@@ -26,6 +28,8 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
 
   get_parameter("update_frequency", update_frequency_);
   get_parameter("publish_frequency", publish_frequency);
+  get_parameter("robot_base_frame", robot_base_frame_);
+  get_parameter("global_frame", global_frame_);
 
 
   publish_period_ms_ = (int64_t)(1000.0/publish_frequency);
@@ -33,6 +37,17 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
   RCLCPP_INFO(get_logger(), "-----Printing Parameters----");
   RCLCPP_INFO(get_logger(), "update_frequency: %f", update_frequency_);
   RCLCPP_INFO(get_logger(), "publish_period: %ldms", publish_period_ms_);
+  RCLCPP_INFO(get_logger(), "robot_base_frame: %s", robot_base_frame_.c_str());
+  RCLCPP_INFO(get_logger(), "global_frame: %s", global_frame_.c_str());
+
+  // Create the transform-related objects
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
+  auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+    get_node_base_interface(),
+    get_node_timers_interface(),
+    callback_group_);
+  tf_buffer_->setCreateTimerInterface(timer_interface);
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -44,6 +59,30 @@ nav2_util::CallbackReturn Mapping2D::on_activate(
   RCLCPP_INFO(get_logger(), "\n -- Activating --\n");
 
   createBond();
+
+  // First, make sure that the transform between the robot base frame
+  // and the global frame is available
+
+  std::string tf_error;
+
+  RCLCPP_INFO(get_logger(), "Checking transform");
+  rclcpp::Rate r(2);
+  while (rclcpp::ok() & 
+    !tf_buffer_->canTransform(
+      global_frame_, robot_base_frame_, tf2::TimePointZero, &tf_error))
+  {
+    RCLCPP_INFO(
+      get_logger(), "Timed out waiting for transform from %s to %s"
+      " to become available, tf error: %s",
+      robot_base_frame_.c_str(), global_frame_.c_str(), tf_error.c_str());
+
+    // The error string will accumulate and errors will typically be the same, so the last
+    // will do for the warning above. Reset the string here to avoid accumulation
+    tf_error.clear();
+    r.sleep();
+  }
+
+  RCLCPP_INFO(get_logger(), "Transform okay..");
 
   // mapProcess = new boost::thread(boost::bind(&Mapping2D::calculateMap, this));
   this->mapProcess = std::make_unique<std::thread>(&Mapping2D::calculateMap, this);
@@ -72,6 +111,9 @@ nav2_util::CallbackReturn Mapping2D::on_cleanup(
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "\n -- Cleaning Up --\n");
+
+  tf_listener_.reset();
+  tf_buffer_.reset();
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
