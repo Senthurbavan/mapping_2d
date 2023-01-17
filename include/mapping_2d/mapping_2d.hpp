@@ -3,7 +3,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include "nav2_util/lifecycle_node.hpp"
-
+// #include <boost/thread.hpp>
 
 namespace mapping_2d
 {
@@ -17,16 +17,19 @@ public:
   ~Mapping2D();
 
 protected:
-    nav2_util::CallbackReturn on_configure(
-      const rclcpp_lifecycle::State &state) override;
-    nav2_util::CallbackReturn on_activate(
-      const rclcpp_lifecycle::State &state) override;
-    nav2_util::CallbackReturn on_deactivate(
-      const rclcpp_lifecycle::State &state) override;
-    nav2_util::CallbackReturn on_cleanup(
-      const rclcpp_lifecycle::State &state) override;
-    nav2_util::CallbackReturn on_shutdown(
-      const rclcpp_lifecycle::State &state) override;
+  nav2_util::CallbackReturn on_configure(
+    const rclcpp_lifecycle::State &state) override;
+  nav2_util::CallbackReturn on_activate(
+    const rclcpp_lifecycle::State &state) override;
+  nav2_util::CallbackReturn on_deactivate(
+    const rclcpp_lifecycle::State &state) override;
+  nav2_util::CallbackReturn on_cleanup(
+    const rclcpp_lifecycle::State &state) override;
+  nav2_util::CallbackReturn on_shutdown(
+    const rclcpp_lifecycle::State &state) override;
+
+  void calculateMap();
+  std::unique_ptr<std::thread> mapProcess;
 
 };
 
