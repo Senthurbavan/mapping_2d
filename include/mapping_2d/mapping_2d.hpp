@@ -31,6 +31,9 @@ protected:
   void calculateMap();
   std::unique_ptr<std::thread> mapProcess;
 
+  void publishMap();
+  rclcpp::TimerBase::SharedPtr publish_timer_;
+
 };
 
 

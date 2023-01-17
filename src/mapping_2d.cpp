@@ -34,6 +34,11 @@ nav2_util::CallbackReturn Mapping2D::on_activate(
   this->mapProcess = std::make_unique<std::thread>(&Mapping2D::calculateMap, this);
   RCLCPP_INFO(get_logger(), "Map process thread is created");
 
+  this->publish_timer_ = create_wall_timer(
+    std::chrono::seconds(1),
+    std::bind(&Mapping2D::publishMap, this));
+  RCLCPP_INFO(get_logger(), "Map publish timer is created");
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -41,7 +46,8 @@ nav2_util::CallbackReturn Mapping2D::on_deactivate(
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "\n -- Deactivating --\n");
-  mapProcess->join();
+  this->publish_timer_->cancel();
+  this->mapProcess->join();
 
   destroyBond();
   return nav2_util::CallbackReturn::SUCCESS;
@@ -73,6 +79,12 @@ void Mapping2D::calculateMap()
     RCLCPP_INFO(get_logger(), "\n\nThread running #%d\n\n", cnt++);
     r.sleep();
   }
+}
+
+void Mapping2D::publishMap()
+{
+  static int cnt = 0;
+  RCLCPP_INFO(get_logger(), "\n\nPublish Map #%d\n\n", cnt++);
 }
 
 
