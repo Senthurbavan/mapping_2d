@@ -49,6 +49,9 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
   tf_buffer_->setCreateTimerInterface(timer_interface);
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+  map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
+    "global_map", 10);
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -59,10 +62,10 @@ nav2_util::CallbackReturn Mapping2D::on_activate(
   RCLCPP_INFO(get_logger(), "\n -- Activating --\n");
 
   createBond();
+  this->map_publisher_->on_activate();
 
   // First, make sure that the transform between the robot base frame
   // and the global frame is available
-
   std::string tf_error;
 
   RCLCPP_INFO(get_logger(), "Checking transform");
@@ -103,6 +106,8 @@ nav2_util::CallbackReturn Mapping2D::on_deactivate(
   this->publish_timer_->cancel();
   this->mapProcess->join();
 
+  this->map_publisher_->on_deactivate();
+
   destroyBond();
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -111,6 +116,8 @@ nav2_util::CallbackReturn Mapping2D::on_cleanup(
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "\n -- Cleaning Up --\n");
+
+  this->map_publisher_.reset();
 
   tf_listener_.reset();
   tf_buffer_.reset();

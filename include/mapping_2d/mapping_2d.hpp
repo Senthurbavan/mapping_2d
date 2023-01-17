@@ -7,6 +7,7 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2/time.h"
 #include "tf2_ros/create_timer_ros.h"
+#include <nav_msgs/msg/occupancy_grid.hpp>
 #include "mapping_2d/grid3d.hpp"
 
 
@@ -45,6 +46,9 @@ protected:
   // Transform listener
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
+  rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::OccupancyGrid>
+    ::SharedPtr map_publisher_;
 
   double update_frequency_;
   int64_t publish_period_ms_;
