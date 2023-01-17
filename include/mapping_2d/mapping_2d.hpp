@@ -4,6 +4,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include "nav2_util/lifecycle_node.hpp"
 // #include <boost/thread.hpp>
+#include "mapping_2d/grid3d.hpp"
+
+
 
 namespace mapping_2d
 {
@@ -33,6 +36,10 @@ protected:
 
   void publishMap();
   rclcpp::TimerBase::SharedPtr publish_timer_;
+
+
+  double update_frequency_;
+  int64_t publish_period_ms_;
 
 };
 

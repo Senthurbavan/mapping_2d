@@ -7,6 +7,9 @@ Mapping2D::Mapping2D(const rclcpp::NodeOptions &options)
   : nav2_util::LifecycleNode("mapping_2d", "", options)
 {
   RCLCPP_INFO(get_logger(), "\n -- Creating -- \n");
+
+  declare_parameter("update_frequency", 1.0);
+  declare_parameter("publish_frequency", 2.0);
 }
 
 
@@ -18,6 +21,18 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "\n -- Configuring --\n");
+
+  double publish_frequency;
+
+  get_parameter("update_frequency", update_frequency_);
+  get_parameter("publish_frequency", publish_frequency);
+
+
+  publish_period_ms_ = (int64_t)(1000.0/publish_frequency);
+
+  RCLCPP_INFO(get_logger(), "-----Printing Parameters----");
+  RCLCPP_INFO(get_logger(), "update_frequency: %f", update_frequency_);
+  RCLCPP_INFO(get_logger(), "publish_period: %ldms", publish_period_ms_);
 
   return nav2_util::CallbackReturn::SUCCESS;
 }
@@ -35,7 +50,7 @@ nav2_util::CallbackReturn Mapping2D::on_activate(
   RCLCPP_INFO(get_logger(), "Map process thread is created");
 
   this->publish_timer_ = create_wall_timer(
-    std::chrono::seconds(1),
+    std::chrono::milliseconds(publish_period_ms_),
     std::bind(&Mapping2D::publishMap, this));
   RCLCPP_INFO(get_logger(), "Map publish timer is created");
 
@@ -72,7 +87,7 @@ nav2_util::CallbackReturn Mapping2D::on_shutdown(
 void Mapping2D::calculateMap()
 {
   RCLCPP_INFO(get_logger(), "\n\ncalculateMap thread is running \n\n");
-  rclcpp::Rate r(1);
+  rclcpp::Rate r(update_frequency_);
   int cnt = 0;
   while(rclcpp::ok())
   {
