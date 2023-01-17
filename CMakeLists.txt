@@ -18,6 +18,7 @@ set(library_name mapping_2d_core)
 
 add_library(${library_name} SHARED
   src/mapping_2d.cpp
+  src/grid3d.cpp
 )
 
 target_include_directories(${library_name} PRIVATE
