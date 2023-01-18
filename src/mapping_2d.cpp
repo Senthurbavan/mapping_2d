@@ -52,6 +52,11 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
   map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
     "global_map", 10);
 
+  octomap_sub_ = this->create_subscription<octomap_msgs::msg::Octomap>(
+    "/octomap_full",
+    10,
+    std::bind(&Mapping2D::octomapCallback, this, std::placeholders::_1));
+
   return nav2_util::CallbackReturn::SUCCESS;
 }
 
@@ -135,12 +140,12 @@ nav2_util::CallbackReturn Mapping2D::on_shutdown(
 
 void Mapping2D::calculateMap()
 {
-  RCLCPP_INFO(get_logger(), "\n\ncalculateMap thread is running \n\n");
+  RCLCPP_INFO(get_logger(), "calculateMap thread is running");
   rclcpp::Rate r(update_frequency_);
   int cnt = 0;
   while(rclcpp::ok())
   {
-    RCLCPP_INFO(get_logger(), "\n\nThread running #%d\n\n", cnt++);
+    RCLCPP_INFO(get_logger(), "Thread running #%d", cnt++);
     r.sleep();
   }
 }
@@ -148,10 +153,15 @@ void Mapping2D::calculateMap()
 void Mapping2D::publishMap()
 {
   static int cnt = 0;
-  RCLCPP_INFO(get_logger(), "\n\nPublish Map #%d\n\n", cnt++);
+  RCLCPP_INFO(get_logger(), "Publish Map #%d", cnt++);
 }
 
-
+void Mapping2D::octomapCallback(const octomap_msgs::msg::Octomap::ConstSharedPtr &msg)
+{
+  static int cnt = 0;
+  RCLCPP_INFO(get_logger(), "Receving octomap #%d\n\n", ++cnt);
+  tree = std::unique_ptr<octomap::OcTree>((octomap::OcTree*)octomap_msgs::msgToMap(*msg));
+}
 
 }// end of namespace
 

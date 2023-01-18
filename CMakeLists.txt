@@ -13,6 +13,12 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(nav2_util REQUIRED)
+find_package(octomap_msgs REQUIRED) 
+find_package(octomap REQUIRED) 
+
+
+include_directories(${OCTOMAP_INCLUDE_DIRS} ${octomap_msgs_INCLUDE_DIRS})  
+link_libraries(${OCTOMAP_LIBRARIES})
 
 set(library_name mapping_2d_core)
 
@@ -31,6 +37,8 @@ ament_target_dependencies(${library_name}
   "rclcpp_lifecycle"
   "rclcpp_components"
   "nav2_util"
+  "octomap_msgs"
+  "octomap"
 )
 
 rclcpp_components_register_nodes(${library_name} "mapping_2d::Mapping2D")
