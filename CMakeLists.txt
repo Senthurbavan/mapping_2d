@@ -39,6 +39,7 @@ ament_target_dependencies(${library_name}
   "nav2_util"
   "octomap_msgs"
   "octomap"
+  "nav_msgs"
   "geometry_msgs"
 )
 

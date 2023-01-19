@@ -13,10 +13,11 @@ Mapping2D::Mapping2D(const rclcpp::NodeOptions &options)
   declare_parameter("transform_tolerance", 0.2);
   declare_parameter("robot_base_frame", "base_footprint");
   declare_parameter("global_frame", "map");
-  declare_parameter("robot_height", 0.5);
+  declare_parameter("robot_height", 0.15);
 
-  declare_parameter("map_origin_x", 0.0);
-  declare_parameter("map_origin_y", 0.0);
+  declare_parameter("map_resolution", 0.05);
+  declare_parameter("map_origin_x", -2.0);
+  declare_parameter("map_origin_y", -2.0);
   declare_parameter("map_length_x", 10.0); // in meters
   declare_parameter("map_length_y", 10.0); // in meters
   declare_parameter("obstacle_threshold", 0.1);
@@ -32,6 +33,8 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
   const rclcpp_lifecycle::State &)
 {
   RCLCPP_INFO(get_logger(), "\n -- Configuring --\n");
+
+  clock_ = this->get_clock();
 
   double publish_frequency, map_length_x, map_length_y;
 
@@ -82,12 +85,12 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
 
   mapGrid = std::unique_ptr<char[]>(new char[map_size_x_*map_size_y_]);
   memset(mapGrid.get(), NO_INFORMATION, map_size_x_*map_size_y_*sizeof(char));
-  RCLCPP_INFO(get_logger(), "map chack: %d, %d, %d", mapGrid[0], 
+  RCLCPP_INFO(get_logger(), "map check: %d, %d, %d", mapGrid[0], 
     mapGrid[map_size_x_*map_size_y_*sizeof(char)/2], 
     mapGrid[map_size_x_*map_size_y_*sizeof(char)]);
 
   map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
-    "global_map", 10);
+    "global_mapx", 10);
 
   octomap_sub_ = this->create_subscription<octomap_msgs::msg::Octomap>(
     "/octomap_full",
@@ -134,8 +137,8 @@ nav2_util::CallbackReturn Mapping2D::on_activate(
   RCLCPP_INFO(get_logger(), "Map process thread is created");
 
   this->publish_timer_ = create_wall_timer(
-    std::chrono::milliseconds(publish_period_ms_),
-    std::bind(&Mapping2D::publishMap, this));
+    std::chrono::milliseconds(publish_period_ms_),[]{}
+    /*std::bind(&Mapping2D::publishMap, this)*/);
   RCLCPP_INFO(get_logger(), "Map publish timer is created");
 
   return nav2_util::CallbackReturn::SUCCESS;
@@ -234,6 +237,7 @@ void Mapping2D::calculateMap()
       octomap_lock.unlock();
 
       //publish gridmap
+      publishMap();
 
     }
     else{
@@ -249,6 +253,28 @@ void Mapping2D::publishMap()
 {
   static int cnt = 0;
   RCLCPP_INFO(get_logger(), "Publish Map #%d", cnt++);
+
+  nav_msgs::msg::OccupancyGrid occupancy_map;
+  occupancy_map.header.frame_id = global_frame_;
+  occupancy_map.header.stamp = clock_->now();
+  occupancy_map.info.resolution = map_resolution_;
+
+  occupancy_map.info.width = map_size_x_;
+  occupancy_map.info.height = map_size_y_;
+
+  occupancy_map.info.origin.position.x = map_origin_x_;
+  occupancy_map.info.origin.position.y = map_origin_y_;
+  occupancy_map.info.origin.position.z = 0.0;
+  occupancy_map.info.origin.orientation.w = 1.0;
+
+  occupancy_map.data.resize(occupancy_map.info.width*occupancy_map.info.height);
+
+  for (int i = 0; i < (int)(map_size_x_*map_size_y_); i++)
+  {
+    occupancy_map.data[i] = mapGrid[i];
+  }
+
+  map_publisher_->publish(std::move(occupancy_map));
 }
 
 void Mapping2D::octomapCallback(const octomap_msgs::msg::Octomap::ConstSharedPtr &msg)

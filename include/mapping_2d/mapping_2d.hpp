@@ -63,6 +63,8 @@ protected:
 
   rclcpp::CallbackGroup::SharedPtr callback_group_;
 
+  rclcpp::Clock::SharedPtr clock_;
+
   // Transform listener
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
