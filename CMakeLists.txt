@@ -39,6 +39,7 @@ ament_target_dependencies(${library_name}
   "nav2_util"
   "octomap_msgs"
   "octomap"
+  "geometry_msgs"
 )
 
 rclcpp_components_register_nodes(${library_name} "mapping_2d::Mapping2D")

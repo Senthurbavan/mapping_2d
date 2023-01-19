@@ -10,8 +10,14 @@ Mapping2D::Mapping2D(const rclcpp::NodeOptions &options)
 
   declare_parameter("update_frequency", 1.0);
   declare_parameter("publish_frequency", 2.0);
+  declare_parameter("transform_tolerance", 0.2);
   declare_parameter("robot_base_frame", "base_footprint");
   declare_parameter("global_frame", "map");
+
+  declare_parameter("map_origin_x", 0.0);
+  declare_parameter("map_origin_y", 0.0);
+  declare_parameter("map_length_x", 10.0); // in meters
+  declare_parameter("map_length_y", 10.0); // in meters
 }
 
 
@@ -24,21 +30,36 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
 {
   RCLCPP_INFO(get_logger(), "\n -- Configuring --\n");
 
-  double publish_frequency;
+  double publish_frequency, map_length_x, map_length_y;
 
   get_parameter("update_frequency", update_frequency_);
   get_parameter("publish_frequency", publish_frequency);
+  get_parameter("transform_tolerance", transform_tolerance_);
   get_parameter("robot_base_frame", robot_base_frame_);
   get_parameter("global_frame", global_frame_);
 
+  get_parameter("map_resolution", map_resolution_);
+  get_parameter("map_origin_x", map_origin_x_);
+  get_parameter("map_origin_y", map_origin_y_);
+  get_parameter("map_length_x", map_length_x);
+  get_parameter("map_length_y", map_length_y);
 
   publish_period_ms_ = (int64_t)(1000.0/publish_frequency);
+  map_size_x_ = (uint32_t)(map_length_x/map_resolution_);
+  map_size_y_ = (uint32_t)(map_length_y/map_resolution_);
 
   RCLCPP_INFO(get_logger(), "-----Printing Parameters----");
   RCLCPP_INFO(get_logger(), "update_frequency: %f", update_frequency_);
   RCLCPP_INFO(get_logger(), "publish_period: %ldms", publish_period_ms_);
+  RCLCPP_INFO(get_logger(), "transform_tolerance: %f", transform_tolerance_);
   RCLCPP_INFO(get_logger(), "robot_base_frame: %s", robot_base_frame_.c_str());
   RCLCPP_INFO(get_logger(), "global_frame: %s", global_frame_.c_str());
+
+  RCLCPP_INFO(get_logger(), "map resolution: %f", map_resolution_);
+  RCLCPP_INFO(get_logger(), "map origin x: %f", map_origin_x_);
+  RCLCPP_INFO(get_logger(), "map origin y: %f", map_origin_y_);
+  RCLCPP_INFO(get_logger(), "map size x: %d (%fm)", map_size_x_, map_length_x);
+  RCLCPP_INFO(get_logger(), "map size y: %d (%fm)", map_size_y_, map_length_y);
 
   // Create the transform-related objects
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
@@ -160,8 +181,50 @@ void Mapping2D::octomapCallback(const octomap_msgs::msg::Octomap::ConstSharedPtr
 {
   static int cnt = 0;
   RCLCPP_INFO(get_logger(), "Receving octomap #%d\n\n", ++cnt);
+
+  std::unique_lock<std::mutex> lock(octomap_mutex_);
+  
   tree = std::unique_ptr<octomap::OcTree>((octomap::OcTree*)octomap_msgs::msgToMap(*msg));
+  
+  lock.unlock();
 }
+
+bool Mapping2D::getRobotPose(geometry_msgs::msg::PoseStamped global_pose) const
+{
+  return nav2_util::getCurrentPose(
+    global_pose, *tf_buffer_, global_frame_, robot_base_frame_, transform_tolerance_);  
+}
+
+void Mapping2D::gmapToWorld(int mx, int my, double& wx, double& wy)
+{
+	wx = map_origin_x_ + (mx + 0.5)*map_resolution_;
+	wy = map_origin_y_ + (my + 0.5)*map_resolution_;
+}
+
+bool Mapping2D::worldToGmap(double wx, double wy, int& mx, int& my)
+{
+	mx = (int)((wx - map_origin_x_) / map_resolution_);
+	my = (int)((wy - map_origin_y_) / map_resolution_);
+
+	if (mx < (int)map_size_x_ && my < (int)map_size_y_ && wx >= map_origin_x_ &&  wy >= map_origin_y_)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+int Mapping2D::getGmapIndex(int mx, int my)
+{
+    return my*map_size_x_ + mx;
+}
+
+void Mapping2D::gmapIndexToCells(int index, int&mx, int&my)
+{
+	my = index/map_size_x_;
+	mx = index - (my*map_size_x_);
+}
+
 
 }// end of namespace
 

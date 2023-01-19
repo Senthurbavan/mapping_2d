@@ -8,13 +8,22 @@
 #include "tf2/time.h"
 #include "tf2_ros/create_timer_ros.h"
 #include <nav_msgs/msg/occupancy_grid.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
 #include "mapping_2d/grid3d.hpp"
 #include "octomap/OcTree.h"
 #include "octomap_msgs/msg/octomap.hpp"
 #include "octomap_msgs/conversions.h"
+#include "nav2_util/robot_utils.hpp"
+#include <mutex>
 
 namespace mapping_2d
 {
+
+static const char NO_INFORMATION = -1;
+static const char OBSTACLE  = 100;
+static const char FREE_SPACE  = 0;
+
 
 class Mapping2D : public nav2_util::LifecycleNode
 {
@@ -44,6 +53,13 @@ protected:
 
   void octomapCallback(const octomap_msgs::msg::Octomap::ConstSharedPtr &msg);
 
+  bool getRobotPose(geometry_msgs::msg::PoseStamped global_pose) const;
+
+  void gmapToWorld(int mx, int my, double& wx, double& wy);
+  bool worldToGmap(double wx, double wy, int& mx, int& my);
+  int getGmapIndex(int mx, int my);
+  void gmapIndexToCells(int index, int&mx, int&my);
+
   rclcpp::CallbackGroup::SharedPtr callback_group_;
 
   // Transform listener
@@ -61,6 +77,15 @@ protected:
   std::string robot_base_frame_;  
 
   std::unique_ptr<octomap::OcTree> tree;
+
+  std::mutex octomap_mutex_;
+
+  double transform_tolerance_;    ///< timeout before transform errors
+
+  // Map params
+  double map_origin_x_, map_origin_y_;
+  double map_resolution_;
+  uint32_t map_size_x_, map_size_y_;
 
 };
 
