@@ -87,7 +87,7 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
   memset(mapGrid.get(), NO_INFORMATION, map_size_x_*map_size_y_*sizeof(char));
   RCLCPP_INFO(get_logger(), "map check: %d, %d, %d", mapGrid[0], 
     mapGrid[map_size_x_*map_size_y_*sizeof(char)/2], 
-    mapGrid[map_size_x_*map_size_y_*sizeof(char)]);
+    mapGrid[map_size_x_*map_size_y_*sizeof(char) - 1]);
 
   map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
     "global_mapx", 10);
@@ -137,8 +137,8 @@ nav2_util::CallbackReturn Mapping2D::on_activate(
   RCLCPP_INFO(get_logger(), "Map process thread is created");
 
   this->publish_timer_ = create_wall_timer(
-    std::chrono::milliseconds(publish_period_ms_),[]{}
-    /*std::bind(&Mapping2D::publishMap, this)*/);
+    std::chrono::milliseconds(publish_period_ms_),
+    std::bind(&Mapping2D::publishMap, this));
   RCLCPP_INFO(get_logger(), "Map publish timer is created");
 
   return nav2_util::CallbackReturn::SUCCESS;
@@ -183,6 +183,11 @@ void Mapping2D::calculateMap()
   RCLCPP_INFO(get_logger(), "calculateMap thread is running");
   rclcpp::Rate r(update_frequency_);
   int cnt = 0;
+
+  std::unique_ptr<char[]> mapGridTemp;
+  mapGridTemp = std::unique_ptr<char[]>(new char[map_size_x_*map_size_y_]);
+  memset(mapGridTemp.get(), NO_INFORMATION, map_size_x_*map_size_y_*sizeof(char));
+
   while(rclcpp::ok())
   {
     RCLCPP_INFO(get_logger(), "Thread running #%d", cnt++);
@@ -223,28 +228,31 @@ void Mapping2D::calculateMap()
 
           if (obs_cells >= vertical_cells_*obs_th_)
           {
-            mapGrid[id] = OBSTACLE;
+            mapGridTemp[id] = OBSTACLE;
           }else if (fs_cells >= vertical_cells_ * fs_th_)
           {
-            mapGrid[id] = FREE_SPACE;
+            mapGridTemp[id] = FREE_SPACE;
           }else
           {
-            mapGrid[id] = NO_INFORMATION;
+            mapGridTemp[id] = NO_INFORMATION;
           }
         }
       }
-        
+      RCLCPP_INFO(get_logger(), "map calculated");
       octomap_lock.unlock();
-
-      //publish gridmap
-      publishMap();
-
+      std::unique_lock<std::mutex> map_lock(map_grid_mutex_);
+      for (uint32_t i = 0; i < map_size_x_*map_size_y_; i++)
+      {
+        mapGrid[i] = mapGridTemp[i];
+      }
+      map_lock.unlock();
+      RCLCPP_INFO(get_logger(), "mapgrid filled");
     }
     else{
       RCLCPP_INFO(get_logger(), "Could not get current robot pose!!");
     }
 
-    
+    RCLCPP_INFO(get_logger(), "calculate map thread going to sleep");
     r.sleep();
   }
 }
@@ -252,7 +260,7 @@ void Mapping2D::calculateMap()
 void Mapping2D::publishMap()
 {
   static int cnt = 0;
-  RCLCPP_INFO(get_logger(), "Publish Map #%d", cnt++);
+  RCLCPP_INFO(get_logger(), "Publishing Map #%d", cnt++);
 
   nav_msgs::msg::OccupancyGrid occupancy_map;
   occupancy_map.header.frame_id = global_frame_;
@@ -269,10 +277,12 @@ void Mapping2D::publishMap()
 
   occupancy_map.data.resize(occupancy_map.info.width*occupancy_map.info.height);
 
+  std::unique_lock<std::mutex> map_lock(map_grid_mutex_);
   for (int i = 0; i < (int)(map_size_x_*map_size_y_); i++)
   {
     occupancy_map.data[i] = mapGrid[i];
   }
+  map_lock.unlock();
 
   map_publisher_->publish(std::move(occupancy_map));
 }

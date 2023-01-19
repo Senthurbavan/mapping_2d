@@ -85,6 +85,7 @@ protected:
   std::unique_ptr<char[]> mapGrid;
 
   std::mutex octomap_mutex_;
+  std::mutex map_grid_mutex_;
 
   double transform_tolerance_;    ///< timeout before transform errors
 
