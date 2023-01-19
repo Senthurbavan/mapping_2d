@@ -15,6 +15,7 @@
 #include "octomap_msgs/msg/octomap.hpp"
 #include "octomap_msgs/conversions.h"
 #include "nav2_util/robot_utils.hpp"
+#include <memory>
 #include <mutex>
 
 namespace mapping_2d
@@ -55,10 +56,10 @@ protected:
 
   bool getRobotPose(geometry_msgs::msg::PoseStamped global_pose) const;
 
-  void gmapToWorld(int mx, int my, double& wx, double& wy);
-  bool worldToGmap(double wx, double wy, int& mx, int& my);
-  int getGmapIndex(int mx, int my);
-  void gmapIndexToCells(int index, int&mx, int&my);
+  void mapToWorld(int mx, int my, double& wx, double& wy);
+  bool worldToMap(double wx, double wy, int& mx, int& my);
+  int getMapIndex(int mx, int my);
+  void mapIndexToCells(int index, int&mx, int&my);
 
   rclcpp::CallbackGroup::SharedPtr callback_group_;
 
@@ -75,8 +76,11 @@ protected:
   int64_t publish_period_ms_;
   std::string global_frame_;      
   std::string robot_base_frame_;  
+  double robot_height_;
 
   std::unique_ptr<octomap::OcTree> tree;
+
+  std::unique_ptr<char[]> mapGrid;
 
   std::mutex octomap_mutex_;
 
@@ -86,6 +90,8 @@ protected:
   double map_origin_x_, map_origin_y_;
   double map_resolution_;
   uint32_t map_size_x_, map_size_y_;
+  uint32_t vertical_cells_;
+  double obs_th_, fs_th_;
 
 };
 
