@@ -90,7 +90,7 @@ nav2_util::CallbackReturn Mapping2D::on_configure(
     mapGrid[map_size_x_*map_size_y_*sizeof(char) - 1]);
 
   map_publisher_ = this->create_publisher<nav_msgs::msg::OccupancyGrid>(
-    "global_mapx", 10);
+    "global_map", rclcpp::QoS(1).reliable().durability(RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL));
 
   octomap_sub_ = this->create_subscription<octomap_msgs::msg::Octomap>(
     "/octomap_full",
@@ -180,9 +180,9 @@ nav2_util::CallbackReturn Mapping2D::on_shutdown(
 
 void Mapping2D::calculateMap()
 {
-  RCLCPP_INFO(get_logger(), "calculateMap thread is running");
+  // RCLCPP_INFO(get_logger(), "calculateMap thread is running");
   rclcpp::Rate r(update_frequency_);
-  int cnt = 0;
+  // int cnt = 0;
 
   std::unique_ptr<char[]> mapGridTemp;
   mapGridTemp = std::unique_ptr<char[]>(new char[map_size_x_*map_size_y_]);
@@ -190,7 +190,7 @@ void Mapping2D::calculateMap()
 
   while(rclcpp::ok())
   {
-    RCLCPP_INFO(get_logger(), "Thread running #%d", cnt++);
+    // RCLCPP_INFO(get_logger(), "Thread running #%d", cnt++);
 
     geometry_msgs::msg::PoseStamped robot_pose;
     
@@ -238,7 +238,7 @@ void Mapping2D::calculateMap()
           }
         }
       }
-      RCLCPP_INFO(get_logger(), "map calculated");
+      // RCLCPP_INFO(get_logger(), "map calculated");
       octomap_lock.unlock();
       std::unique_lock<std::mutex> map_lock(map_grid_mutex_);
       for (uint32_t i = 0; i < map_size_x_*map_size_y_; i++)
@@ -246,21 +246,21 @@ void Mapping2D::calculateMap()
         mapGrid[i] = mapGridTemp[i];
       }
       map_lock.unlock();
-      RCLCPP_INFO(get_logger(), "mapgrid filled");
+      // RCLCPP_INFO(get_logger(), "mapgrid filled");
     }
     else{
       RCLCPP_INFO(get_logger(), "Could not get current robot pose!!");
     }
 
-    RCLCPP_INFO(get_logger(), "calculate map thread going to sleep");
+    // RCLCPP_INFO(get_logger(), "calculate map thread going to sleep");
     r.sleep();
   }
 }
 
 void Mapping2D::publishMap()
 {
-  static int cnt = 0;
-  RCLCPP_INFO(get_logger(), "Publishing Map #%d", cnt++);
+  // static int cnt = 0;
+  // RCLCPP_INFO(get_logger(), "Publishing Map #%d", cnt++);
 
   nav_msgs::msg::OccupancyGrid occupancy_map;
   occupancy_map.header.frame_id = global_frame_;
@@ -289,8 +289,8 @@ void Mapping2D::publishMap()
 
 void Mapping2D::octomapCallback(const octomap_msgs::msg::Octomap::ConstSharedPtr &msg)
 {
-  static int cnt = 0;
-  RCLCPP_INFO(get_logger(), "Receving octomap #%d\n\n", ++cnt);
+  // static int cnt = 0;
+  // RCLCPP_INFO(get_logger(), "Receving octomap #%d\n\n", ++cnt);
 
   std::unique_lock<std::mutex> lock(octomap_mutex_);
   
